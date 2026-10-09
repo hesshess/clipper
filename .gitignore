@@ -11,3 +11,9 @@ node_modules
 
 *.tsbuildinfo
 .DS_Store
+
+# Installed agent skills and local Claude settings
+/.agents/skills/
+/.claude/skills/
+/.claude/settings.local.json
+/.claude/worktrees/
