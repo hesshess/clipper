@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { getAppointments } from "@/lib/clipper/data";
+import { formatKstTime, kstParts } from "@/lib/clipper/time";
 
 export const dynamic = "force-dynamic";
 
@@ -9,10 +10,8 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 function formatDate(value: string) {
   const date = new Date(value);
-  const hours = date.getHours();
-  const suffix = hours >= 12 ? "PM" : "AM";
-  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
-  return `${DAYS[date.getDay()]}, ${MONTHS[date.getMonth()]} ${date.getDate()} · ${hour12}:${String(date.getMinutes()).padStart(2, "0")} ${suffix}`;
+  const { weekday, month, day } = kstParts(date);
+  return `${DAYS[weekday]}, ${MONTHS[month]} ${day} · ${formatKstTime(date)}`;
 }
 
 function formatMoney(cents: number) {

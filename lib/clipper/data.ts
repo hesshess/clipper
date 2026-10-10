@@ -17,28 +17,64 @@ import {
 } from "@/db/schema";
 
 import { getDatabase } from "./db";
+import { addKstDays, fromKst, kstDateKey, kstParts, kstTimeOfDay } from "./time";
 import type {
   AppointmentDetails,
   BookingOption,
-  GroomingPackage,
+  BookingSlot,
 } from "./types";
+
+// KST arrival times; both fit every seeded schedule window for the longest package.
+const SLOT_TIMES = ["11:00", "13:00"];
+const SLOT_DAYS = 4;
+const SLOT_SEARCH_DAYS = 14;
 
 export async function getBookingOptions(): Promise<BookingOption> {
   const db = getDatabase();
 
-  const packageRows = await db.select().from(groomingPackages);
-  const neighborhoodRows = await db
-    .select({ neighborhood: groomerServiceAreas.neighborhood })
-    .from(groomerServiceAreas);
-
-  const neighborhoods = [
-    ...new Set(neighborhoodRows.map((row) => row.neighborhood)),
-  ].sort();
+  const [packageRows, neighborhoodRows, weekdayRows] = await db.batch([
+    db.select().from(groomingPackages),
+    db
+      .selectDistinct({ neighborhood: groomerServiceAreas.neighborhood })
+      .from(groomerServiceAreas)
+      .orderBy(groomerServiceAreas.neighborhood),
+    db
+      .selectDistinct({ weekday: groomerSchedules.weekday })
+      .from(groomerSchedules)
+      .innerJoin(groomers, eq(groomerSchedules.groomerId, groomers.id))
+      .where(and(eq(groomers.active, true), eq(groomerSchedules.available, true))),
+  ]);
 
   return {
     packages: packageRows,
-    neighborhoods,
+    neighborhoods: neighborhoodRows.map((row) => row.neighborhood),
+    availableSlots: upcomingSlots(
+      new Date(),
+      new Set(weekdayRows.map((row) => row.weekday)),
+    ),
   };
+}
+
+// Offers fixed arrival times on the next days any groomer works. Starts from
+// tomorrow (KST) so no slot is ever in the past.
+function upcomingSlots(now: Date, workingWeekdays: Set<number>): BookingSlot[] {
+  const today = kstDateKey(now);
+  const slots: BookingSlot[] = [];
+  let days = 0;
+
+  for (let offset = 1; offset <= SLOT_SEARCH_DAYS && days < SLOT_DAYS; offset++) {
+    const dateKey = addKstDays(today, offset);
+    if (!workingWeekdays.has(kstParts(fromKst(dateKey, "00:00")).weekday)) continue;
+    days++;
+    for (const time of SLOT_TIMES) {
+      slots.push({
+        id: `slot-${dateKey}-${time.replace(":", "")}`,
+        startsAt: fromKst(dateKey, time).toISOString(),
+      });
+    }
+  }
+
+  return slots;
 }
 
 export async function getAppointmentByReference(
@@ -108,9 +144,10 @@ export async function findAvailableGroomer(
   endsAt: Date,
 ): Promise<string | null> {
   const db = getDatabase();
-  const weekday = startsAt.getUTCDay();
-  const requestedStart = timeOfDay(startsAt);
-  const requestedEnd = timeOfDay(endsAt);
+  // Schedules are stored as KST weekdays and wall-clock times.
+  const weekday = kstParts(startsAt).weekday;
+  const requestedStart = kstTimeOfDay(startsAt);
+  const requestedEnd = kstTimeOfDay(endsAt);
 
   const scheduledGroomers = await db
     .select({
@@ -167,10 +204,4 @@ export async function findAvailableGroomer(
     candidates.find((groomer) => !busyGroomerIds.has(groomer.groomerId))
       ?.groomerId ?? null
   );
-}
-
-function timeOfDay(date: Date): string {
-  return `${String(date.getUTCHours()).padStart(2, "0")}:${String(
-    date.getUTCMinutes(),
-  ).padStart(2, "0")}`;
 }

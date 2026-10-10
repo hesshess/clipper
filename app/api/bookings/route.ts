@@ -65,6 +65,13 @@ export async function POST(request: Request) {
     );
   }
 
+  if (startsAt.getTime() <= Date.now()) {
+    return Response.json(
+      { ok: false, error: "startsAt must be in the future." },
+      { status: 400 },
+    );
+  }
+
   const db = getDatabase();
   const [groomingPackage] = await db
     .select()

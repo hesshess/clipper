@@ -1,6 +1,6 @@
 import { Check, Heart, Sparkles } from "lucide-react";
-import Link from "next/link";
 
+import { kstParts } from "@/lib/clipper/time";
 import type { AppointmentDetails } from "@/lib/clipper/types";
 
 type BookingConfirmationProps = {
@@ -41,7 +41,8 @@ const months = [
 function formatDate(value: Date | number | string | null | undefined) {
   const date = value instanceof Date ? value : value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) return "your chosen day";
-  return `${weekdays[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`;
+  const { weekday, month, day } = kstParts(date);
+  return `${weekdays[weekday]}, ${months[month]} ${day}`;
 }
 
 export function BookingConfirmation({ appointment }: BookingConfirmationProps) {

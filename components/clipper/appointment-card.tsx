@@ -11,6 +11,7 @@ import {
   UserRound,
 } from "lucide-react";
 
+import { formatKstTime, kstParts } from "@/lib/clipper/time";
 import type { AppointmentDetails } from "@/lib/clipper/types";
 
 type AppointmentCardProps = {
@@ -87,17 +88,14 @@ function asDate(value: Date | number | string | null | undefined) {
 function formatDate(value: Date | number | string | null | undefined) {
   const date = asDate(value);
   if (!date || Number.isNaN(date.getTime())) return "Date to be confirmed";
-  return `${weekdays[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+  const { weekday, month, day, year } = kstParts(date);
+  return `${weekdays[weekday]}, ${months[month]} ${day}, ${year}`;
 }
 
 function formatTime(value: Date | number | string | null | undefined) {
   const date = asDate(value);
   if (!date || Number.isNaN(date.getTime())) return "Time to be confirmed";
-  const hour = date.getHours();
-  const minute = date.getMinutes().toString().padStart(2, "0");
-  const meridiem = hour >= 12 ? "PM" : "AM";
-  const twelveHour = hour % 12 || 12;
-  return `${twelveHour}:${minute} ${meridiem}`;
+  return formatKstTime(date);
 }
 
 function formatPrice(priceCents: number | null | undefined) {
